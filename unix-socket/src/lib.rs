@@ -7,6 +7,7 @@ mod uds_impl {
 }
 mod unix_stream {
     use std::io;
+    use std::io::{IoSlice, IoSliceMut, Read, Write};
     use std::net::Shutdown;
     use std::path::Path;
     use std::time::Duration;
@@ -63,6 +64,54 @@ mod unix_stream {
 
         pub fn shutdown(&self, how: Shutdown) -> io::Result<()> {
             self.0.shutdown(how)
+        }
+    }
+
+    impl Read for UnixStream {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            self.0.read(buf)
+        }
+
+        fn read_vectored(&mut self, bufs: &mut [IoSliceMut<'_>]) -> io::Result<usize> {
+            self.0.read_vectored(bufs)
+        }
+    }
+
+    impl<'a> Read for &'a UnixStream {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            (&self.0).read(buf)
+        }
+
+        fn read_vectored(&mut self, bufs: &mut [IoSliceMut<'_>]) -> io::Result<usize> {
+            (&self.0).read_vectored(bufs)
+        }
+    }
+
+    impl Write for UnixStream {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            self.0.write(buf)
+        }
+
+        fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> io::Result<usize> {
+            self.0.write_vectored(bufs)
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            self.0.flush()
+        }
+    }
+
+    impl<'a> Write for &'a UnixStream {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            (&self.0).write(buf)
+        }
+
+        fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> io::Result<usize> {
+            (&self.0).write_vectored(bufs)
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            (&self.0).flush()
         }
     }
 }
