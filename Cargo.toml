@@ -1,3 +1,3 @@
 [workspace]
-members = ["base", "unix-socket"]
+members = ["base", "hv-sock", "unix-socket"]
 resolver = "2"
