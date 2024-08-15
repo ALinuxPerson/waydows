@@ -1,12 +1,12 @@
-use std::{env, iter, thread};
+use std::{env, thread};
 use std::io::{Read, Write};
+use std::iter::Skip;
 use std::ops::ControlFlow;
-use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
+use hv_sock::SocketAddr;
 use rand::{Rng, SeedableRng};
 use rand::rngs::SmallRng;
-use waydows_unix_socket::{UnixListener, UnixStream};
 
 fn run_every_second(iterations_per_second: f64, mut f: impl FnMut() -> ControlFlow<()>) {
     let interval = Duration::from_secs_f64(1.0 / iterations_per_second);
@@ -59,8 +59,8 @@ impl RunningAverage {
     }
 }
 
-fn client(path: PathBuf, width: usize, height: usize) {
-    let mut stream = UnixStream::connect(&path).unwrap();
+fn client(socket_addr: SocketAddr, width: usize, height: usize) {
+    let mut stream = hv_sock::Stream::connect(&socket_addr).unwrap();
     let mut buf = vec![0; width * height];
     let average = Mutex::new(RunningAverage::default());
     
@@ -78,8 +78,8 @@ fn client(path: PathBuf, width: usize, height: usize) {
     })
 }
 
-fn server(path: PathBuf, width: usize, height: usize, fps: f64) {
-    let listener = UnixListener::bind(&path).unwrap();
+fn server(socket_addr: SocketAddr, width: usize, height: usize, fps: f64) {
+    let listener = hv_sock::Listener::bind(&socket_addr).unwrap();
 
     thread::scope(|s| {
         let (screen_sender, screen_receiver) = crossbeam::channel::bounded(fps.round() as usize);
@@ -115,18 +115,32 @@ fn server(path: PathBuf, width: usize, height: usize, fps: f64) {
     })
 }
 
+#[cfg(target_os = "linux")]
+fn socket_addr(args: &mut Skip<env::Args>) -> SocketAddr {
+    let port = args.next().unwrap().parse().unwrap();
+    SocketAddr::new(port)
+}
+
+#[cfg(windows)]
+fn socket_addr(args: &mut Skip<env::Args>) -> SocketAddr {
+    let vm_id = args.next().unwrap().parse().unwrap();
+    let service_id = args.next().unwrap().parse().unwrap();
+    
+    SocketAddr::new(vm_id, service_id)
+}
+
 fn main() {
     let mut args = env::args().skip(1);
     let kind = args.next().unwrap();
-    let path: PathBuf = args.next().unwrap().into();
+    let socket_addr = socket_addr(&mut args);
     let width = args.next().unwrap().parse().unwrap();
     let height = args.next().unwrap().parse().unwrap();
     let fps = args.next().unwrap().parse().unwrap();
 
     if kind == "client" {
-        client(path, width, height);
+        client(socket_addr, width, height);
     } else if kind == "server" {
-        server(path, width, height, fps);
+        server(socket_addr, width, height, fps);
     } else {
         eprintln!("unknown kind {kind}");
         std::process::exit(1);
