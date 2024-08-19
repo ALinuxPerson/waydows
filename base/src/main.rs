@@ -60,7 +60,8 @@ impl RunningAverage {
 }
 
 fn client(socket_addr: SocketAddr, width: usize, height: usize) {
-    let mut stream = hv_sock::Stream::connect(&socket_addr).unwrap();
+    let stream = hv_sock::Stream::connect(&socket_addr).unwrap();
+    let mut stream = lz4_flex::frame::FrameDecoder::new(stream);
     let mut buf = vec![0; width * height];
     let average = Mutex::new(RunningAverage::default());
     
@@ -99,10 +100,11 @@ fn server(socket_addr: SocketAddr, width: usize, height: usize, fps: f64) {
         println!("listening for incoming streams");
 
         loop {
-            let (mut stream, addr) = listener.accept().unwrap();
+            let (stream, addr) = listener.accept().unwrap();
             let screen_receiver = screen_receiver.clone();
             println!("new client {stream:?} {addr:?}");
 
+            let mut stream = lz4_flex::frame::FrameEncoder::new(stream);
             s.spawn(move || {
                 run_every_second(fps, move || {
                     match stream.write_all(&screen_receiver.recv().unwrap()) {

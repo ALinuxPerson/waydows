@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 crossbeam = "0.8.4"
 hv_sock = { git = "https://github.com/ALinuxPerson/hv_sock.git", version = "0.1.0" }
+lz4_flex = { version = "0.11.3", default-features = false, features = ["frame"] }
 rand = { version = "0.8.5", features = ["small_rng"] }
